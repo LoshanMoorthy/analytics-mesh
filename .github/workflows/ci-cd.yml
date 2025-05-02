@@ -32,7 +32,7 @@ jobs:
       - run: cargo test --workspace
 
       - name: Normalise image prefix to lower-case
-        run: echo "IMAGE_PREFIX=$(echo $RAW_PREFIX | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+        run: echo "IMAGE_PREFIX=${RAW_PREFIX,,}" >> $GITHUB_ENV
 
       # ---------- Build Docker images ----------
       - name: Build ingestion image
