@@ -9,9 +9,7 @@ use prost::Message;
 use rdkafka::{
     producer::{FutureProducer, FutureRecord},
     ClientConfig,
-    util::Timeout,
-    error::KafkaError,
-    message::OwnedMessage,
+    util::Timeout
 };
 use tonic::{transport::Server, Request, Response, Status};
 use tower_http::trace::TraceLayer;
