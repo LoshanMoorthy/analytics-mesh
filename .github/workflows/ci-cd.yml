@@ -1,0 +1,46 @@
+name: CI / CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/analytics-mesh
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- Rust toolchain ----------
+      - uses: actions/setup-rust@v1
+        with:
+          rust-version: stable
+
+      # ---------- Cache ----------
+      - uses: Swatinem/rust-cache@v2
+
+      # ---------- Clippy + tests ----------
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace
+
+      # ---------- Build Docker images ----------
+      - name: Build ingestion image
+        run: docker build -t $IMAGE_PREFIX/ingestion-service:commit-${{ github.sha }} -f ingestion-service/Dockerfile .
+
+      - name: Build enrichment image
+        run: docker build -t $IMAGE_PREFIX/enrichment-service:commit-${{ github.sha }} -f enrichment-service/Dockerfile .
+
+      # ---------- Push on merge to main ----------
+      - name: Login to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      - name: Push images
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker push $IMAGE_PREFIX/ingestion-service:commit-${{ github.sha }}
+          docker push $IMAGE_PREFIX/enrichment-service:commit-${{ github.sha }}
