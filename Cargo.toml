@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "ingestion-service",
+    "enrichment-service",
+    "sdk-generator",
+]

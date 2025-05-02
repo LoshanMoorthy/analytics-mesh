@@ -1,14 +1,17 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+pub mod generated {
+    include!("generated/analytics.rs");
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+use chrono::Utc;
+use generated::Event;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+pub fn enrich(mut evt: Event) -> Event {
+    let attrs = &mut evt.attributes;
+    attrs
+        .entry("geo_city".into())
+        .or_insert("Berlin".into());
+    attrs
+        .entry("processed_ts".into())
+        .or_insert(Utc::now().timestamp_millis().to_string());
+    evt
 }
