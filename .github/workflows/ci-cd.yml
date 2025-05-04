@@ -14,11 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
       # ---------- Rust toolchain ----------
-      - uses: rust-lang/setup-rust@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          rust-version: stable
+          toolchain: stable
+          profile: minimal
+          override: true
 
       # ---------- Cache ----------
       - uses: Swatinem/rust-cache@v2
@@ -26,6 +30,9 @@ jobs:
       # ---------- Clippy + tests ----------
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo test --workspace
+
+      - name: Normalise image prefix to lower-case
+        run: echo "IMAGE_PREFIX=${RAW_PREFIX,,}" >> $GITHUB_ENV
 
       # ---------- Build Docker images ----------
       - name: Build ingestion image
