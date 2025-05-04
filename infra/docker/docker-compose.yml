@@ -1,21 +1,81 @@
 version: "3.8"
-
 services:
+  # ── Zookeeper ───────────────────────────────────────────────
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    hostname: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181"
 
+  # ── Kafka ────────────────────────────────────────────────────
   kafka:
     image: confluentinc/cp-kafka:7.5.0
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
+    hostname: kafka
+    depends_on: [zookeeper]
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+
+  # ── Ingestion Service ─────────────────────────────────────────
+  ingestion:
+    build:
+      context: ../../ingestion-service
+      dockerfile: Dockerfile
+    depends_on: [kafka]
+    environment:
+      RUST_LOG: info
+      BOOTSTRAP_SERVERS: kafka:9092
+    expose:
+      - "9100"
+    ports:
+      - "8080:8080"    # REST
+      - "50051:50051"  # gRPC
+      - "9100:9100"
+
+  # ── Enrichment Service ────────────────────────────────────────
+  enrichment:
+    build:
+      context: ../../enrichment-service
+      dockerfile: Dockerfile
+    depends_on: [kafka]
+    environment:
+      RUST_LOG: info
+      BOOTSTRAP_SERVERS: kafka:9092
+    expose:
+      - "9101"
+    ports:
+      - "9101:9101"
+
+  # ── Prometheus ────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on: [ingestion, enrichment]
+
+  # ── Grafana ──────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.3
+    volumes:
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+    ports:
+      - "3000:3000"
+    depends_on: [prometheus]
+
+networks:
+  default:
+    name: analytics-mesh-net
+    driver: bridge
